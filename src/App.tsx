@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAgent } from "@/hooks/useAgent";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Sparkles, Bot, RefreshCw, CheckCircle2, MessageSquare, ChevronRight } from "lucide-react";
 
