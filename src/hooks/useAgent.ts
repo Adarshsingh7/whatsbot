@@ -23,6 +23,15 @@ export function useAgent() {
 
   const chatRef = useRef<ChatSession | null>(null);
 
+  const cleanJson = (text: string) => {
+    try {
+      const cleaned = text.replace(/```json\n?|```/g, "").trim();
+      return cleaned;
+    } catch (e) {
+      return text;
+    }
+  };
+
   const initAgent = async () => {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
@@ -36,7 +45,7 @@ export function useAgent() {
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash", 
         systemInstruction: JSON.stringify(AGENT_PROMPT, null, 2),
         generationConfig: {
           responseMimeType: "application/json",
@@ -45,20 +54,20 @@ export function useAgent() {
 
       chatRef.current = model.startChat();
       
-      // Start the conversation
-      const result = await chatRef.current.sendMessage("Start the discovery step. Ask the first question.");
-      const response = JSON.parse(result.response.text());
+      const result = await chatRef.current.sendMessage("INITIALIZE: You are the Elite Content OS. Start Phase 1 (Discovery) immediately. Ask Question 1 (Topic or niche?) and provide suggestions.");
+      const text = result.response.text();
+      const response = JSON.parse(cleanJson(text));
       
       setState({
-        question: response.question,
-        suggestions: response.suggestions || [],
+        question: response.question || "Topic or niche?",
+        suggestions: response.suggestions || ["Business", "Tech", "Lifestyle", "Finance", "Gaming", "Health"],
         step: response.step || 1,
         finalScript: null,
         completed: false,
       });
     } catch (err: any) {
-      console.error(err);
-      setError("Failed to initialize agent. Check console for details.");
+      console.error("Agent Init Error:", err);
+      setError("Initialization failed. Check API key and connection.");
     } finally {
       setLoading(false);
     }
@@ -72,28 +81,35 @@ export function useAgent() {
 
     try {
       const result = await chatRef.current.sendMessage(answer);
-      const response = JSON.parse(result.response.text());
+      const text = result.response.text();
+      const response = JSON.parse(cleanJson(text));
 
-      if (response.completed) {
-        setState(prev => ({
-          ...prev,
+      console.log("AI Response:", response);
+
+      if (response.completed || response.final_strategy || response.final_script) {
+        // FOOLPROOF: Force anything that isn't a string to become a string
+        const data = response.final_strategy || response.final_script || response;
+        const finalString = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+
+        setState({
           question: null,
           suggestions: [],
-          finalScript: response.final_script,
+          step: 10,
+          finalScript: finalString,
           completed: true,
-        }));
+        });
       } else {
-        setState(prev => ({
-          question: response.question,
+        setState({
+          question: response.question || "Next step?",
           suggestions: response.suggestions || [],
-          step: response.step || prev.step + 1,
+          step: response.step || 1,
           finalScript: null,
           completed: false,
-        }));
+        });
       }
     } catch (err: any) {
-      console.error(err);
-      setError("Failed to submit answer. Please try again.");
+      console.error("Submit Error:", err);
+      setError("Strategic engine timeout. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -115,11 +131,5 @@ export function useAgent() {
     initAgent();
   }, []);
 
-  return {
-    state,
-    loading,
-    error,
-    submitAnswer,
-    reset,
-  };
+  return { state, loading, error, submitAnswer, reset };
 }
