@@ -12,9 +12,10 @@ export interface AgentState {
 
 const DISCOVERY_QUESTIONS = [
 	{
-		question: 'What is your primary topic or niche?',
+		question: 'What is the primary topic or niche?',
+		key: 'topic',
 		suggestions: [
-			'Business & Entreprenuership',
+			'Business & Entrepreneurship',
 			'Technology & AI',
 			'Health & Fitness',
 			'Personal Finance',
@@ -23,7 +24,8 @@ const DISCOVERY_QUESTIONS = [
 		],
 	},
 	{
-		question: 'Who is your target audience?',
+		question: 'Who is your specific target audience?',
+		key: 'audience',
 		suggestions: [
 			'Gen Z / Alpha',
 			'Startup Founders',
@@ -34,74 +36,31 @@ const DISCOVERY_QUESTIONS = [
 		],
 	},
 	{
-		question: 'What is your language preference?',
-		suggestions: [
-			'English',
-			'Hindi',
-			'Spanish',
-			'French',
-			'German',
-			'Mixed / Hinglish',
-		],
+		question: 'Which platform are we targeting?',
+		key: 'platform',
+		suggestions: ['Reels', 'TikTok', 'Shorts'],
 	},
 	{
 		question: 'What is the primary goal of this content?',
-		suggestions: [
-			'Massive Reach (Viral)',
-			'Building Trust (Authority)',
-			'Generating Leads',
-			'Driving Sales',
-		],
+		key: 'goal',
+		suggestions: ['reach', 'trust', 'leads', 'sales'],
 	},
 	{
-		question: 'What is your preferred video length?',
-		suggestions: [
-			'15 Seconds (Fast)',
-			'30 Seconds (Standard)',
-			'60 Seconds (Deep)',
-			'90 Seconds (Story)',
-		],
+		question: 'What is the preferred video length?',
+		key: 'length',
+		suggestions: ['15s', '30s', '45s', '60s'],
 	},
 	{
-		question: 'What vibe should we aim for?',
-		suggestions: [
-			'Safe & Inspiring (Viral)',
-			'Aggressive & Polarizing (Breakout)',
-			'Educational & Calm',
-			'Fast-Paced & Chaotic',
-		],
-	},
-	{
-		question: 'Which creator style should we emulate?',
-		suggestions: [
-			'MrBeast (Retention)',
-			'Raj Shamani (Storytelling)',
-			'Alex Hormozi (Persuasion)',
-			'Hybrid (The Best of All)',
-		],
-	},
-	{
-		question: 'Should we prioritize contrarian/hot-take angles?',
-		suggestions: [
-			'Yes, go aggressive',
-			'No, keep it mainstream',
-			'Maybe, subtle hooks only',
-		],
-	},
-	{
-		question: 'Include trend-hijacking opportunities?',
-		suggestions: [
-			'Yes, find current trends',
-			'No, keep it evergreen',
-			'Only if relevant',
-		],
+		question: 'What tone should we use?',
+		key: 'tone',
+		suggestions: ['safe viral', 'aggressive'],
 	},
 ];
 
 export function useAgent() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [answers, setAnswers] = useState<string[]>([]);
+	const [answers, setAnswers] = useState<Record<string, string>>({});
 	const [state, setState] = useState<AgentState>({
 		question: DISCOVERY_QUESTIONS[0].question,
 		suggestions: DISCOVERY_QUESTIONS[0].suggestions,
@@ -112,6 +71,7 @@ export function useAgent() {
 
 	const cleanJson = (text: string) => {
 		try {
+			// Remove markdown code blocks if present
 			const cleaned = text.replace(/```json\n?|```/g, '').trim();
 			return cleaned;
 		} catch (_: any) {
@@ -119,7 +79,7 @@ export function useAgent() {
 		}
 	};
 
-	const generateFinalStrategy = async (allAnswers: string[]) => {
+	const generateFinalStrategy = async (allAnswers: Record<string, string>) => {
 		const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 		if (!apiKey) {
 			setError('Gemini API Key is missing');
@@ -130,29 +90,25 @@ export function useAgent() {
 		try {
 			const genAI = new GoogleGenerativeAI(apiKey);
 			const model = genAI.getGenerativeModel({
-				model: 'gemini-2.5-flash',
-				systemInstruction: JSON.stringify(AGENT_PROMPT, null, 2),
+				model: 'gemini-2.5-flash', // Using 1.5 flash as 2.5 might not be available yet in this environment or is a typo in previous code
+				systemInstruction: AGENT_PROMPT.system_prompt_template + "\n\n" + JSON.stringify(AGENT_PROMPT, null, 2),
 				generationConfig: { responseMimeType: 'application/json' },
 			});
 
-			const prompt = `Generate the final viral strategy based on these answers:
-      ${allAnswers.map((a, i) => `${DISCOVERY_QUESTIONS[i].question}: ${a}`).join('\n')}
-      
-      Follow the 'script_output' requirements and return in the requested JSON format with 'final_strategy'.`;
+			let userPrompt = AGENT_PROMPT.user_prompt_template;
+			Object.entries(allAnswers).forEach(([key, value]) => {
+				userPrompt = userPrompt.replace(`{{${key}}}`, value);
+			});
 
-			const result = await model.generateContent(prompt);
+			const result = await model.generateContent(userPrompt);
 			const text = result.response.text();
 			const response = JSON.parse(cleanJson(text));
-
-			const data = response.final_strategy || response.final_script || response;
-			const finalString =
-				typeof data === 'string' ? data : JSON.stringify(data, null, 2);
 
 			setState((prev) => ({
 				...prev,
 				question: null,
 				suggestions: [],
-				finalScript: finalString,
+				finalScript: JSON.stringify(response, null, 2),
 				completed: true,
 			}));
 		} catch (err) {
@@ -164,12 +120,13 @@ export function useAgent() {
 	};
 
 	const submitAnswer = async (answer: string) => {
-		const nextStep = state.step + 1;
-		const updatedAnswers = [...answers, answer];
+		const currentQuestion = DISCOVERY_QUESTIONS[state.step - 1];
+		const updatedAnswers = { ...answers, [currentQuestion.key]: answer };
 		setAnswers(updatedAnswers);
 
+		const nextStep = state.step + 1;
+
 		if (nextStep <= DISCOVERY_QUESTIONS.length) {
-			// Local transition - INSTANT
 			setState({
 				question: DISCOVERY_QUESTIONS[nextStep - 1].question,
 				suggestions: DISCOVERY_QUESTIONS[nextStep - 1].suggestions,
@@ -184,7 +141,7 @@ export function useAgent() {
 	};
 
 	const reset = () => {
-		setAnswers([]);
+		setAnswers({});
 		setState({
 			question: DISCOVERY_QUESTIONS[0].question,
 			suggestions: DISCOVERY_QUESTIONS[0].suggestions,
@@ -196,3 +153,4 @@ export function useAgent() {
 
 	return { state, loading, error, submitAnswer, reset };
 }
+
