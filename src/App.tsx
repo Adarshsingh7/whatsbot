@@ -68,6 +68,7 @@ export default function App() {
 			);
 
 		if (id === 'hooks') {
+			const hooksList = Array.isArray(data) ? data : (data.hooks || []);
 			return (
 				<div className='space-y-6'>
 					<div className='p-4 rounded-xl bg-primary/5 border border-primary/20'>
@@ -83,27 +84,19 @@ export default function App() {
 					</div>
 
 					<div className='grid gap-3'>
-						{Array.isArray(data) ? (
-							data.map((hook: any, i: number) => (
-								<div
-									key={i}
-									className='p-3 rounded-lg bg-muted/30 border border-border/50 text-sm flex gap-3'
-								>
-									<span className='text-primary font-mono font-bold'>
-										{i + 1}.
-									</span>
-									<p>
-										{typeof hook === 'string'
-											? hook
-											: hook.hook || JSON.stringify(hook)}
-									</p>
-								</div>
-							))
-						) : (
-							<pre className='text-xs whitespace-pre-wrap'>
-								{JSON.stringify(data, null, 2)}
-							</pre>
-						)}
+						{hooksList.map((hook: any, i: number) => (
+							<div
+								key={i}
+								className='p-3 rounded-lg bg-muted/30 border border-border/50 text-sm flex gap-3'
+							>
+								<span className='text-primary font-mono font-bold'>{i + 1}.</span>
+								<p>
+									{typeof hook === 'string'
+										? hook
+										: hook.hook || JSON.stringify(hook)}
+								</p>
+							</div>
+						))}
 					</div>
 				</div>
 			);
@@ -112,7 +105,7 @@ export default function App() {
 		if (id === 'scripts') {
 			const scripts = Array.isArray(data)
 				? data
-				: data.versions || Object.values(data);
+				: data.versions || (typeof data === 'object' ? Object.values(data) : [data]);
 			return (
 				<div className='space-y-8'>
 					{scripts.map((script: any, i: number) => (
@@ -129,9 +122,7 @@ export default function App() {
 							<div className='p-5 rounded-xl bg-card border shadow-sm font-sans leading-relaxed text-sm md:text-base whitespace-pre-wrap'>
 								{script.content ||
 									script.script ||
-									(typeof script === 'string'
-										? script
-										: JSON.stringify(script, null, 2))}
+									(typeof script === 'string' ? script : JSON.stringify(script, null, 2))}
 							</div>
 						</div>
 					))}
@@ -139,10 +130,29 @@ export default function App() {
 			);
 		}
 
-		return (
-			<div className='space-y-4'>
-				{typeof data === 'object' ? (
-					Object.entries(data).map(([key, value]: [string, any]) => (
+		// Generic list or object renderer
+		if (Array.isArray(data)) {
+			return (
+				<div className='p-4 rounded-xl bg-muted/20 border border-border/50'>
+					<ul className='space-y-3'>
+						{data.map((item, idx) => (
+							<li
+								key={idx}
+								className='flex gap-3 text-sm'
+							>
+								<div className='mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0' />
+								<span className='leading-relaxed'>{item}</span>
+							</li>
+						))}
+					</ul>
+				</div>
+			);
+		}
+
+		if (typeof data === 'object') {
+			return (
+				<div className='space-y-4'>
+					{Object.entries(data).map(([key, value]: [string, any]) => (
 						<div
 							key={key}
 							className='space-y-2'
@@ -164,16 +174,22 @@ export default function App() {
 										))}
 									</ul>
 								) : (
-									<p className='text-sm leading-relaxed'>{value}</p>
+									<p className='text-sm leading-relaxed'>
+										{typeof value === 'object'
+											? JSON.stringify(value, null, 2)
+											: value}
+									</p>
 								)}
 							</div>
 						</div>
-					))
-				) : (
-					<pre className='text-xs whitespace-pre-wrap bg-muted/30 p-4 rounded-xl border border-border/50'>
-						{JSON.stringify(data, null, 2)}
-					</pre>
-				)}
+					))}
+				</div>
+			);
+		}
+
+		return (
+			<div className='p-5 rounded-xl bg-card border shadow-sm font-sans leading-relaxed text-sm md:text-base whitespace-pre-wrap'>
+				{data}
 			</div>
 		);
 	};
@@ -425,7 +441,7 @@ export default function App() {
 				<div className='flex flex-wrap justify-center gap-x-8 gap-y-4 text-muted-foreground/30 font-mono text-[9px] uppercase tracking-[0.3em] font-bold'>
 					<div className='flex items-center gap-2'>
 						<div className='w-1 h-1 rounded-full bg-muted-foreground/30' />
-						<span>Model: Gemini 1.5 Flash</span>
+						<span>Model: Gemini 2.5 Flash</span>
 					</div>
 					<div className='flex items-center gap-2'>
 						<div className='w-1 h-1 rounded-full bg-muted-foreground/30' />

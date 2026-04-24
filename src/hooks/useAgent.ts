@@ -90,12 +90,13 @@ export function useAgent() {
 		try {
 			const genAI = new GoogleGenerativeAI(apiKey);
 			const model = genAI.getGenerativeModel({
-				model: 'gemini-2.5-flash', // Using 1.5 flash as 2.5 might not be available yet in this environment or is a typo in previous code
-				systemInstruction: AGENT_PROMPT.system_prompt_template + "\n\n" + JSON.stringify(AGENT_PROMPT, null, 2),
+				model: 'gemini-2.5-flash',
+				systemInstruction: `${AGENT_PROMPT.role}\n${AGENT_PROMPT.mission}\n${AGENT_PROMPT.output_format}\nRules: ${AGENT_PROMPT.rules.join(', ')}\nSchemas: ${JSON.stringify(AGENT_PROMPT.schemas)}`,
 				generationConfig: { responseMimeType: 'application/json' },
 			});
 
-			let userPrompt = AGENT_PROMPT.user_prompt_template;
+
+			let userPrompt = AGENT_PROMPT.user_template;
 			Object.entries(allAnswers).forEach(([key, value]) => {
 				userPrompt = userPrompt.replace(`{{${key}}}`, value);
 			});
